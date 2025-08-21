@@ -1,0 +1,75 @@
+name: flutter_websocket_plus
+description: WebSocket connection management with reconnection logic and message queuing. Supports all 6 platforms with WASM compatibility.
+version: 0.0.1
+homepage: https://github.com/Dhia-Bechattaoui/flutter_websocket_plus
+repository: https://github.com/Dhia-Bechattaoui/flutter_websocket_plus
+issue_tracker: https://github.com/Dhia-Bechattaoui/flutter_websocket_plus/issues
+documentation: https://github.com/Dhia-Bechattaoui/flutter_websocket_plus#readme
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web_socket_channel: ^3.0.3
+  http: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  test: ^1.24.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.7
+  coverage: ^1.6.3
+
+flutter:
+  # No flutter-specific dependencies needed for this package
+
+# Platform support
+platforms:
+  android:
+  ios:
+  web:
+  windows:
+  macos:
+  linux:
+
+# Additional metadata for better pub.dev scoring
+topics:
+  - websocket
+  - networking
+  - real-time
+  - communication
+  - reconnection
+  - message-queue
+
+# Keywords for better discoverability
+keywords:
+  - websocket
+  - flutter
+  - dart
+  - networking
+  - real-time
+  - reconnection
+  - message-queue
+  - cross-platform
+  - wasm
+  - ios
+  - android
+  - web
+  - windows
+  - macos
+  - linux
+
+
+
+# License
+license: MIT
+
+# Categories
+categories:
+  - networking
+  - communication
