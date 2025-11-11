@@ -65,51 +65,51 @@ class WebSocketConfig {
     required this.url,
     this.headers = const {},
     this.protocols = const [],
-  })  : connectionTimeout = const Duration(seconds: 30),
-        enableReconnection = true,
-        maxReconnectionAttempts = 10,
-        initialReconnectionDelay = const Duration(seconds: 1),
-        maxReconnectionDelay = const Duration(minutes: 5),
-        backoffMultiplier = 2.0,
-        enableMessageQueue = true,
-        maxQueueSize = 1000,
-        heartbeatInterval = const Duration(seconds: 30),
-        enableHeartbeat = true,
-        enableCompression = false;
+  }) : connectionTimeout = const Duration(seconds: 30),
+       enableReconnection = true,
+       maxReconnectionAttempts = 10,
+       initialReconnectionDelay = const Duration(seconds: 1),
+       maxReconnectionDelay = const Duration(minutes: 5),
+       backoffMultiplier = 2.0,
+       enableMessageQueue = true,
+       maxQueueSize = 1000,
+       heartbeatInterval = const Duration(seconds: 30),
+       enableHeartbeat = true,
+       enableCompression = false;
 
   /// Creates a WebSocketConfig with aggressive reconnection settings.
   const WebSocketConfig.aggressive({
     required this.url,
     this.headers = const {},
     this.protocols = const [],
-  })  : connectionTimeout = const Duration(seconds: 15),
-        enableReconnection = true,
-        maxReconnectionAttempts = 20,
-        initialReconnectionDelay = const Duration(milliseconds: 500),
-        maxReconnectionDelay = const Duration(minutes: 2),
-        backoffMultiplier = 1.5,
-        enableMessageQueue = true,
-        maxQueueSize = 2000,
-        heartbeatInterval = const Duration(seconds: 15),
-        enableHeartbeat = true,
-        enableCompression = false;
+  }) : connectionTimeout = const Duration(seconds: 15),
+       enableReconnection = true,
+       maxReconnectionAttempts = 20,
+       initialReconnectionDelay = const Duration(milliseconds: 500),
+       maxReconnectionDelay = const Duration(minutes: 2),
+       backoffMultiplier = 1.5,
+       enableMessageQueue = true,
+       maxQueueSize = 2000,
+       heartbeatInterval = const Duration(seconds: 15),
+       enableHeartbeat = true,
+       enableCompression = false;
 
   /// Creates a WebSocketConfig with minimal settings for testing.
   const WebSocketConfig.testing({
     required this.url,
     this.headers = const {},
     this.protocols = const [],
-  })  : connectionTimeout = const Duration(seconds: 5),
-        enableReconnection = false,
-        maxReconnectionAttempts = 0,
-        initialReconnectionDelay = Duration.zero,
-        maxReconnectionDelay = Duration.zero,
-        backoffMultiplier = 1.0,
-        enableMessageQueue = false,
-        maxQueueSize = 0,
-        heartbeatInterval = Duration.zero,
-        enableHeartbeat = false,
-        enableCompression = false;
+  }) : connectionTimeout = const Duration(seconds: 5),
+       enableReconnection = false,
+       maxReconnectionAttempts = 0,
+       initialReconnectionDelay = Duration.zero,
+       maxReconnectionDelay = Duration.zero,
+       backoffMultiplier = 1.0,
+       enableMessageQueue = false,
+       maxQueueSize = 0,
+       heartbeatInterval = Duration.zero,
+       enableHeartbeat = false,
+       enableCompression = false;
 
   /// Returns a copy of this config with updated values.
   WebSocketConfig copyWith({
@@ -172,19 +172,23 @@ class WebSocketConfig {
   factory WebSocketConfig.fromJson(Map<String, dynamic> json) {
     return WebSocketConfig(
       url: json['url'] as String,
-      connectionTimeout:
-          Duration(milliseconds: json['connectionTimeout'] as int? ?? 30000),
+      connectionTimeout: Duration(
+        milliseconds: json['connectionTimeout'] as int? ?? 30000,
+      ),
       enableReconnection: json['enableReconnection'] as bool? ?? true,
       maxReconnectionAttempts: json['maxReconnectionAttempts'] as int? ?? 10,
       initialReconnectionDelay: Duration(
-          milliseconds: json['initialReconnectionDelay'] as int? ?? 1000),
+        milliseconds: json['initialReconnectionDelay'] as int? ?? 1000,
+      ),
       maxReconnectionDelay: Duration(
-          milliseconds: json['maxReconnectionDelay'] as int? ?? 300000),
+        milliseconds: json['maxReconnectionDelay'] as int? ?? 300000,
+      ),
       backoffMultiplier: json['backoffMultiplier'] as double? ?? 2.0,
       enableMessageQueue: json['enableMessageQueue'] as bool? ?? true,
       maxQueueSize: json['maxQueueSize'] as int? ?? 1000,
-      heartbeatInterval:
-          Duration(milliseconds: json['heartbeatInterval'] as int? ?? 30000),
+      heartbeatInterval: Duration(
+        milliseconds: json['heartbeatInterval'] as int? ?? 30000,
+      ),
       enableHeartbeat: json['enableHeartbeat'] as bool? ?? true,
       headers: Map<String, String>.from(json['headers'] as Map? ?? {}),
       protocols: List<String>.from(json['protocols'] as List? ?? []),

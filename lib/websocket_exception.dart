@@ -10,11 +10,7 @@ class WebSocketException implements Exception {
   final StackTrace? stackTrace;
 
   /// Creates a new WebSocketException.
-  const WebSocketException(
-    this.message, {
-    this.cause,
-    this.stackTrace,
-  });
+  const WebSocketException(this.message, {this.cause, this.stackTrace});
 
   /// Creates a WebSocketException for connection failures.
   const WebSocketException.connectionFailed(
@@ -28,16 +24,22 @@ class WebSocketException implements Exception {
     String reason, {
     Object? cause,
     StackTrace? stackTrace,
-  }) : this('Failed to send message: $reason',
-            cause: cause, stackTrace: stackTrace);
+  }) : this(
+         'Failed to send message: $reason',
+         cause: cause,
+         stackTrace: stackTrace,
+       );
 
   /// Creates a WebSocketException for reconnection failures.
   const WebSocketException.reconnectionFailed(
     String reason, {
     Object? cause,
     StackTrace? stackTrace,
-  }) : this('Reconnection failed: $reason',
-            cause: cause, stackTrace: stackTrace);
+  }) : this(
+         'Reconnection failed: $reason',
+         cause: cause,
+         stackTrace: stackTrace,
+       );
 
   /// Creates a WebSocketException for timeout errors.
   const WebSocketException.timeout(

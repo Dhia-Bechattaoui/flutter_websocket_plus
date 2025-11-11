@@ -3,13 +3,15 @@
 [![Pub Version](https://img.shields.io/pub/v/flutter_websocket_plus)](https://pub.dev/packages/flutter_websocket_plus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Flutter](https://img.shields.io/badge/Flutter-3.0+-blue.svg)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.0+-blue.svg)](https://dart.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.8+-blue.svg)](https://dart.dev)
 
 A powerful and feature-rich WebSocket package for Flutter with automatic reconnection, message queuing, and cross-platform support.
 
+<img src="assets/example.gif" width="300" alt="Example demonstration of flutter_websocket_plus">
+
 ## Features
 
-🚀 **Cross-Platform Support**: Works on all 6 platforms (iOS, Android, Web, Windows, macOS, Linux)  
+🚀 **Cross-Platform Support**: Works on all 6 platforms (iOS, Android, Web, Windows, macOS, Linux)
 🔄 **Automatic Reconnection**: Smart reconnection strategies with exponential backoff  
 📬 **Message Queuing**: Reliable message delivery with priority queuing  
 💓 **Heartbeat Support**: Built-in ping/pong for connection health monitoring  
@@ -27,7 +29,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_websocket_plus: ^0.0.1
+  flutter_websocket_plus: ^0.1.0
 ```
 
 ### Basic Usage
@@ -61,6 +63,9 @@ manager.messageStream.listen((message) {
 manager.stateStream.listen((state) {
   print('Connection state: ${state.connectionState}');
 });
+
+// Clean up when done
+await manager.dispose();
 ```
 
 ## Advanced Usage
@@ -145,16 +150,28 @@ manager.eventStream.listen((event) {
 ### Statistics and Monitoring
 
 ```dart
-// Get connection statistics
-final stats = manager.statistics;
+// Get comprehensive statistics
+final stats = manager.getStatistics();
 print('Connection state: ${stats['connectionState']}');
-print('Queue size: ${stats['queueStatistics']['size']}');
+print('Is connected: ${stats['isConnected']}');
 print('Reconnection attempts: ${stats['reconnectionAttempt']}');
+
+// Get connection statistics
+final connStats = stats['connectionStatistics'];
+if (connStats != null) {
+  print('Messages sent: ${connStats['messagesSent']}');
+  print('Messages received: ${connStats['messagesReceived']}');
+  print('Errors: ${connStats['errorsCount']}');
+  print('Heartbeat health: ${connStats['heartbeatHealth']}');
+}
 
 // Get queue statistics
 final queueStats = manager.queueStatistics;
 print('Queue size: ${queueStats['size']}');
+print('Max size: ${queueStats['maxSize']}');
+print('Utilization: ${queueStats['utilization']}');
 print('Retryable messages: ${queueStats['retryableCount']}');
+print('Ack required: ${queueStats['ackRequiredCount']}');
 ```
 
 ## Platform Support
@@ -218,9 +235,11 @@ The package provides comprehensive error handling:
 ## Performance Considerations
 
 - Efficient message queuing with O(log n) priority operations
+- Batch message processing for optimal throughput
 - Minimal memory overhead for connection management
 - Optimized reconnection timing algorithms
 - Lazy initialization of resources
+- Platform-specific optimizations for native and web
 
 ## Testing
 
@@ -232,8 +251,13 @@ flutter test
 flutter test --coverage
 
 # Run specific test file
-flutter test test/websocket_manager_test.dart
+flutter test test/flutter_websocket_plus_test.dart
 ```
+
+## Requirements
+
+- Dart SDK: >=3.8.0 <4.0.0
+- Flutter: >=3.0.0
 
 ## Contributing
 

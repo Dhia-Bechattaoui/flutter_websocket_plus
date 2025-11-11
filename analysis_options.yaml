@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - example/**
+  errors:
+    # Allow print statements in example files
+    avoid_print: ignore
+
+linter:
+  rules:
+    # Enable all recommended lints
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_initializing_formals
+    - prefer_interpolation_to_compose_strings

@@ -41,42 +41,43 @@ void main() {
 
   group('WebSocketException', () {
     test('should create exception with message', () {
-      final exception = WebSocketException('Test error');
+      const exception = WebSocketException('Test error');
       expect(exception.message, 'Test error');
       expect(exception.cause, null);
       expect(exception.stackTrace, null);
     });
 
     test('should create connection failed exception', () {
-      final exception = WebSocketException.connectionFailed('Connection error');
+      const exception = WebSocketException.connectionFailed('Connection error');
       expect(exception.message, 'Connection failed: Connection error');
     });
 
     test('should create message send failed exception', () {
-      final exception = WebSocketException.messageSendFailed('Send error');
+      const exception = WebSocketException.messageSendFailed('Send error');
       expect(exception.message, 'Failed to send message: Send error');
     });
 
     test('should create reconnection failed exception', () {
-      final exception =
-          WebSocketException.reconnectionFailed('Reconnection error');
+      const exception = WebSocketException.reconnectionFailed(
+        'Reconnection error',
+      );
       expect(exception.message, 'Reconnection failed: Reconnection error');
     });
 
     test('should create timeout exception', () {
-      final exception = WebSocketException.timeout('Operation');
+      const exception = WebSocketException.timeout('Operation');
       expect(exception.message, 'Operation timed out');
     });
 
     test('should copy with new values', () {
-      final original = WebSocketException('Original');
+      const original = WebSocketException('Original');
       final copy = original.copyWith(message: 'New message');
       expect(copy.message, 'New message');
       expect(copy.cause, original.cause);
     });
 
     test('should have correct string representation', () {
-      final exception = WebSocketException('Test error');
+      const exception = WebSocketException('Test error');
       expect(exception.toString(), 'WebSocketException: Test error');
     });
   });
@@ -155,7 +156,7 @@ void main() {
 
   group('WebSocketConfig', () {
     test('should create with default values', () {
-      final config = WebSocketConfig(url: 'ws://test.com');
+      const config = WebSocketConfig(url: 'ws://test.com');
       expect(config.url, 'ws://test.com');
       expect(config.enableReconnection, true);
       expect(config.maxReconnectionAttempts, 10);
@@ -164,21 +165,21 @@ void main() {
     });
 
     test('should create production config', () {
-      final config = WebSocketConfig.production(url: 'ws://test.com');
+      const config = WebSocketConfig.production(url: 'ws://test.com');
       expect(config.url, 'ws://test.com');
       expect(config.enableReconnection, true);
       expect(config.enableMessageQueue, true);
     });
 
     test('should create aggressive config', () {
-      final config = WebSocketConfig.aggressive(url: 'ws://test.com');
+      const config = WebSocketConfig.aggressive(url: 'ws://test.com');
       expect(config.url, 'ws://test.com');
       expect(config.maxReconnectionAttempts, 20);
       expect(config.initialReconnectionDelay.inMilliseconds, 500);
     });
 
     test('should create testing config', () {
-      final config = WebSocketConfig.testing(url: 'ws://test.com');
+      const config = WebSocketConfig.testing(url: 'ws://test.com');
       expect(config.url, 'ws://test.com');
       expect(config.enableReconnection, false);
       expect(config.enableMessageQueue, false);
@@ -186,7 +187,7 @@ void main() {
     });
 
     test('should copy with new values', () {
-      final original = WebSocketConfig(url: 'ws://test.com');
+      const original = WebSocketConfig(url: 'ws://test.com');
       final copy = original.copyWith(
         enableReconnection: false,
         maxReconnectionAttempts: 5,
@@ -198,14 +199,16 @@ void main() {
     });
 
     test('should convert to and from JSON', () {
-      final original = WebSocketConfig(url: 'ws://test.com');
+      const original = WebSocketConfig(url: 'ws://test.com');
       final json = original.toJson();
       final restored = WebSocketConfig.fromJson(json);
 
       expect(restored.url, original.url);
       expect(restored.enableReconnection, original.enableReconnection);
       expect(
-          restored.maxReconnectionAttempts, original.maxReconnectionAttempts);
+        restored.maxReconnectionAttempts,
+        original.maxReconnectionAttempts,
+      );
     });
   });
 
@@ -230,13 +233,13 @@ void main() {
     });
 
     test('should create linear backoff strategy', () {
-      final strategy = LinearBackoffStrategy();
+      const strategy = LinearBackoffStrategy();
       expect(strategy.initialDelay, const Duration(seconds: 1));
       expect(strategy.increment, const Duration(seconds: 1));
     });
 
     test('should calculate linear delays', () {
-      final strategy = LinearBackoffStrategy();
+      const strategy = LinearBackoffStrategy();
 
       final delay1 = strategy.calculateDelay(1);
       final delay2 = strategy.calculateDelay(2);
@@ -248,12 +251,12 @@ void main() {
     });
 
     test('should create fixed delay strategy', () {
-      final strategy = FixedDelayStrategy();
+      const strategy = FixedDelayStrategy();
       expect(strategy.delay, const Duration(seconds: 5));
     });
 
     test('should calculate fixed delays', () {
-      final strategy = FixedDelayStrategy();
+      const strategy = FixedDelayStrategy();
 
       final delay1 = strategy.calculateDelay(1);
       final delay2 = strategy.calculateDelay(5);
@@ -263,7 +266,7 @@ void main() {
     });
 
     test('should create no reconnection strategy', () {
-      final strategy = NoReconnectionStrategy();
+      const strategy = NoReconnectionStrategy();
       expect(strategy.shouldReconnect(1, 10), false);
     });
 
@@ -335,8 +338,11 @@ void main() {
       final queue = MessageQueue(enablePriority: true);
 
       final normalMessage = WebSocketMessage.text('Normal', id: 'normal-1');
-      final priorityMessage = WebSocketMessage.text('Priority',
-          requiresAck: true, id: 'priority-1');
+      final priorityMessage = WebSocketMessage.text(
+        'Priority',
+        requiresAck: true,
+        id: 'priority-1',
+      );
       final controlMessage = WebSocketMessage.ping(id: 'ping-1');
 
       queue.enqueue(normalMessage);
@@ -395,7 +401,7 @@ void main() {
 
   group('WebSocketManager', () {
     test('should create manager with config', () {
-      final config = WebSocketConfig(url: 'ws://test.com');
+      const config = WebSocketConfig(url: 'ws://test.com');
       final manager = WebSocketManager(config: config);
 
       expect(manager.config, config);
@@ -405,7 +411,7 @@ void main() {
     });
 
     test('should have correct stream properties', () {
-      final config = WebSocketConfig(url: 'ws://test.com');
+      const config = WebSocketConfig(url: 'ws://test.com');
       final manager = WebSocketManager(config: config);
 
       expect(manager.stateStream, isA<Stream<WebSocketManagerState>>());
@@ -416,7 +422,7 @@ void main() {
     });
 
     test('should provide queue statistics', () {
-      final config = WebSocketConfig(url: 'ws://test.com');
+      const config = WebSocketConfig(url: 'ws://test.com');
       final manager = WebSocketManager(config: config);
 
       final stats = manager.queueStatistics;
@@ -425,7 +431,7 @@ void main() {
     });
 
     test('should provide comprehensive statistics', () {
-      final config = WebSocketConfig(url: 'ws://test.com');
+      const config = WebSocketConfig(url: 'ws://test.com');
       final manager = WebSocketManager(config: config);
 
       final stats = manager.getStatistics();
@@ -439,7 +445,7 @@ void main() {
 
   group('WebSocketManagerState', () {
     test('should create state with all properties', () {
-      final state = WebSocketManagerState(
+      const state = WebSocketManagerState(
         connectionState: WebSocketState.connected,
         isReconnecting: false,
         reconnectionAttempt: 0,
@@ -453,7 +459,7 @@ void main() {
     });
 
     test('should have correct string representation', () {
-      final state = WebSocketManagerState(
+      const state = WebSocketManagerState(
         connectionState: WebSocketState.connected,
         isReconnecting: false,
         reconnectionAttempt: 0,
@@ -519,7 +525,7 @@ void main() {
 
   group('Integration Tests', () {
     test('should handle complete message flow', () {
-      final config = WebSocketConfig.testing(url: 'ws://test.com');
+      const config = WebSocketConfig.testing(url: 'ws://test.com');
       final manager = WebSocketManager(config: config);
 
       expect(manager.connectionState, WebSocketState.initial);
@@ -528,11 +534,11 @@ void main() {
     });
 
     test('should handle configuration presets', () {
-      final productionConfig = WebSocketConfig.production(url: 'ws://prod.com');
+      const productionConfig = WebSocketConfig.production(url: 'ws://prod.com');
       expect(productionConfig.enableReconnection, true);
       expect(productionConfig.enableMessageQueue, true);
 
-      final testingConfig = WebSocketConfig.testing(url: 'ws://test.com');
+      const testingConfig = WebSocketConfig.testing(url: 'ws://test.com');
       expect(testingConfig.enableReconnection, false);
       expect(testingConfig.enableMessageQueue, false);
     });

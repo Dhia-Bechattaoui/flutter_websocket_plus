@@ -30,8 +30,8 @@ class WebSocketMessage {
     this.requiresAck = false,
     this.retryCount = 0,
     this.maxRetries = 3,
-  })  : timestamp = timestamp ?? DateTime.now(),
-        id = id ?? _generateId();
+  }) : timestamp = timestamp ?? DateTime.now(),
+       id = id ?? _generateId();
 
   /// Creates a text message.
   WebSocketMessage.text(
@@ -40,12 +40,12 @@ class WebSocketMessage {
     String? id,
     bool requiresAck = false,
   }) : this(
-          data: text,
-          type: 'text',
-          timestamp: timestamp,
-          id: id,
-          requiresAck: requiresAck,
-        );
+         data: text,
+         type: 'text',
+         timestamp: timestamp,
+         id: id,
+         requiresAck: requiresAck,
+       );
 
   /// Creates a binary message.
   WebSocketMessage.binary(
@@ -54,12 +54,12 @@ class WebSocketMessage {
     String? id,
     bool requiresAck = false,
   }) : this(
-          data: bytes,
-          type: 'binary',
-          timestamp: timestamp,
-          id: id,
-          requiresAck: requiresAck,
-        );
+         data: bytes,
+         type: 'binary',
+         timestamp: timestamp,
+         id: id,
+         requiresAck: requiresAck,
+       );
 
   /// Creates a JSON message.
   WebSocketMessage.json(
@@ -68,36 +68,32 @@ class WebSocketMessage {
     String? id,
     bool requiresAck = false,
   }) : this(
-          data: json,
-          type: 'json',
-          timestamp: timestamp,
-          id: id,
-          requiresAck: requiresAck,
-        );
+         data: json,
+         type: 'json',
+         timestamp: timestamp,
+         id: id,
+         requiresAck: requiresAck,
+       );
 
   /// Creates a ping message.
-  WebSocketMessage.ping({
-    DateTime? timestamp,
-    String? id,
-  }) : this(
-          data: 'ping',
-          type: 'ping',
-          timestamp: timestamp,
-          id: id,
-          requiresAck: false,
-        );
+  WebSocketMessage.ping({DateTime? timestamp, String? id})
+    : this(
+        data: 'ping',
+        type: 'ping',
+        timestamp: timestamp,
+        id: id,
+        requiresAck: false,
+      );
 
   /// Creates a pong message.
-  WebSocketMessage.pong({
-    DateTime? timestamp,
-    String? id,
-  }) : this(
-          data: 'pong',
-          type: 'pong',
-          timestamp: timestamp,
-          id: id,
-          requiresAck: false,
-        );
+  WebSocketMessage.pong({DateTime? timestamp, String? id})
+    : this(
+        data: 'pong',
+        type: 'pong',
+        timestamp: timestamp,
+        id: id,
+        requiresAck: false,
+      );
 
   /// Returns true if this message can be retried.
   bool get canRetry => retryCount < maxRetries;

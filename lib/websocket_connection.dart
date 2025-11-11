@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'websocket_state.dart';
 import 'websocket_message.dart';
 import 'websocket_exception.dart';
 import 'websocket_config.dart';
+
+// Conditional import for native platforms
+import 'websocket_connection_io.dart'
+    if (dart.library.html) 'websocket_connection_web.dart'
+    as platform;
 
 /// Manages a single WebSocket connection with state management and event handling.
 class WebSocketConnection {
@@ -42,6 +48,15 @@ class WebSocketConnection {
 
   /// Connection statistics.
   final Map<String, dynamic> _statistics = {};
+
+  /// Message counters for statistics.
+  int _messagesSent = 0;
+  int _messagesReceived = 0;
+  int _errorsCount = 0;
+  int _pingSent = 0;
+  int _pongReceived = 0;
+  DateTime? _lastPongTime;
+  DateTime? _lastPingTime;
 
   /// Creates a new WebSocketConnection.
   WebSocketConnection(this.config);
@@ -100,14 +115,19 @@ class WebSocketConnection {
         }
       });
 
-      // Create WebSocket connection
-      if (config.protocols.isNotEmpty) {
-        _channel = WebSocketChannel.connect(
-          Uri.parse(config.url),
-          protocols: config.protocols,
+      // Create WebSocket connection with headers and protocols
+      final uri = Uri.parse(config.url);
+
+      // Use platform-specific helper for cross-platform compatibility
+      // Native platforms support headers, web platform has limitations
+      if (config.headers.isNotEmpty || config.protocols.isNotEmpty) {
+        _channel = platform.PlatformWebSocketHelper.connect(
+          uri,
+          protocols: config.protocols.isNotEmpty ? config.protocols : null,
+          headers: config.headers.isNotEmpty ? config.headers : null,
         );
       } else {
-        _channel = WebSocketChannel.connect(Uri.parse(config.url));
+        _channel = WebSocketChannel.connect(uri);
       }
 
       // Listen for messages
@@ -155,7 +175,9 @@ class WebSocketConnection {
   /// Sends a message through the WebSocket connection.
   Future<bool> send(WebSocketMessage message) async {
     if (!isConnected) {
-      throw WebSocketException.messageSendFailed('Connection not established');
+      throw const WebSocketException.messageSendFailed(
+        'Connection not established',
+      );
     }
 
     try {
@@ -164,16 +186,31 @@ class WebSocketConnection {
       } else if (message.isBinary) {
         _channel!.sink.add(message.data as List<int>);
       } else if (message.isJson) {
-        _channel!.sink.add(message.data.toString());
+        // Properly serialize JSON using jsonEncode
+        _channel!.sink.add(jsonEncode(message.data));
+      } else if (message.isControl) {
+        // For ping/pong, send as text message for application-level heartbeat
+        _channel!.sink.add(message.data as String);
       } else {
         _channel!.sink.add(message.data.toString());
       }
 
       _lastMessageTime = DateTime.now();
+      _messagesSent++;
+
+      // Track ping/pong for heartbeat statistics
+      if (message.type == 'ping') {
+        _pingSent++;
+        _lastPingTime = DateTime.now();
+      }
+
       _eventController.add(WebSocketEvent.messageSent(message));
+      _updateStatistics();
 
       return true;
     } catch (e) {
+      _errorsCount++;
+      _updateStatistics();
       throw WebSocketException.messageSendFailed('Failed to send message: $e');
     }
   }
@@ -215,10 +252,22 @@ class WebSocketConnection {
   /// Handles incoming messages from the WebSocket.
   void _handleIncomingMessage(dynamic data) {
     _lastMessageTime = DateTime.now();
+    _messagesReceived++;
 
     WebSocketMessage message;
     if (data is String) {
-      message = WebSocketMessage.text(data);
+      // Try to parse as JSON if it looks like JSON
+      if (data.trim().startsWith('{') || data.trim().startsWith('[')) {
+        try {
+          final jsonData = jsonDecode(data);
+          message = WebSocketMessage.json(jsonData);
+        } catch (e) {
+          // Not valid JSON, treat as text
+          message = WebSocketMessage.text(data);
+        }
+      } else {
+        message = WebSocketMessage.text(data);
+      }
     } else if (data is List<int>) {
       message = WebSocketMessage.binary(data);
     } else {
@@ -232,21 +281,32 @@ class WebSocketConnection {
     if (message.isControl) {
       _handleControlMessage(message);
     }
+
+    _updateStatistics();
   }
 
   /// Handles control messages (ping/pong).
   void _handleControlMessage(WebSocketMessage message) {
     if (message.type == 'ping') {
+      // Respond to ping with pong
       sendPong();
     } else if (message.type == 'pong') {
       // Update heartbeat statistics
-      _statistics['lastPongTime'] = DateTime.now().toIso8601String();
+      _lastPongTime = DateTime.now();
+      _pongReceived++;
+      _statistics['lastPongTime'] = _lastPongTime!.toIso8601String();
+      _statistics['heartbeatLatency'] = _lastPingTime != null
+          ? _lastPongTime!.difference(_lastPingTime!).inMilliseconds
+          : null;
+      _updateStatistics();
     }
   }
 
   /// Handles connection errors.
   void _handleError(dynamic error) {
+    _errorsCount++;
     _eventController.add(WebSocketEvent.error(error.toString()));
+    _updateStatistics();
 
     if (_state == WebSocketState.connecting) {
       _handleConnectionFailure('Connection error: $error');
@@ -286,6 +346,24 @@ class WebSocketConnection {
   void _startHeartbeat() {
     _heartbeatTimer = Timer.periodic(config.heartbeatInterval, (timer) {
       if (isConnected) {
+        // Check if we haven't received a pong in time (heartbeat timeout)
+        if (_lastPingTime != null && _lastPongTime != null) {
+          final timeSincePing = DateTime.now().difference(_lastPingTime!);
+          final timeSincePong = DateTime.now().difference(_lastPongTime!);
+
+          // If we sent a ping but haven't received pong in 2x heartbeat interval, consider it failed
+          if (timeSincePing.inMilliseconds >
+                  config.heartbeatInterval.inMilliseconds * 2 &&
+              timeSincePong.inMilliseconds >
+                  config.heartbeatInterval.inMilliseconds * 2) {
+            _eventController.add(
+              WebSocketEvent.error('Heartbeat timeout - no pong received'),
+            );
+            _errorsCount++;
+            _updateStatistics();
+          }
+        }
+
         sendPing();
       } else {
         timer.cancel();
@@ -297,14 +375,45 @@ class WebSocketConnection {
   void _updateStatistics() {
     _statistics['currentState'] = _state.name;
     _statistics['lastStateChange'] = DateTime.now().toIso8601String();
+    _statistics['messagesSent'] = _messagesSent;
+    _statistics['messagesReceived'] = _messagesReceived;
+    _statistics['errorsCount'] = _errorsCount;
+    _statistics['pingSent'] = _pingSent;
+    _statistics['pongReceived'] = _pongReceived;
 
     if (_connectionStartTime != null) {
-      _statistics['connectionStartTime'] =
-          _connectionStartTime!.toIso8601String();
+      _statistics['connectionStartTime'] = _connectionStartTime!
+          .toIso8601String();
+      _statistics['connectionDuration'] = DateTime.now()
+          .difference(_connectionStartTime!)
+          .inMilliseconds;
     }
 
     if (_lastMessageTime != null) {
       _statistics['lastMessageTime'] = _lastMessageTime!.toIso8601String();
+      _statistics['timeSinceLastMessage'] = DateTime.now()
+          .difference(_lastMessageTime!)
+          .inMilliseconds;
+    }
+
+    if (_lastPongTime != null) {
+      _statistics['lastPongTime'] = _lastPongTime!.toIso8601String();
+      _statistics['timeSinceLastPong'] = DateTime.now()
+          .difference(_lastPongTime!)
+          .inMilliseconds;
+    }
+
+    if (_lastPingTime != null) {
+      _statistics['lastPingTime'] = _lastPingTime!.toIso8601String();
+      _statistics['timeSinceLastPing'] = DateTime.now()
+          .difference(_lastPingTime!)
+          .inMilliseconds;
+    }
+
+    // Calculate heartbeat health
+    if (_pingSent > 0 && _pongReceived > 0) {
+      _statistics['heartbeatHealth'] =
+          '${(_pongReceived / _pingSent * 100).toStringAsFixed(2)}%';
     }
   }
 
@@ -329,11 +438,8 @@ class WebSocketEvent {
   final DateTime timestamp;
 
   /// Creates a new WebSocketEvent.
-  WebSocketEvent({
-    required this.type,
-    this.data,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+  WebSocketEvent({required this.type, this.data, DateTime? timestamp})
+    : timestamp = timestamp ?? DateTime.now();
 
   /// Event when connection is established.
   WebSocketEvent.connected() : this(type: 'connected');
@@ -343,31 +449,18 @@ class WebSocketEvent {
 
   /// Event when connection fails.
   WebSocketEvent.connectionFailed(String reason)
-      : this(
-          type: 'connectionFailed',
-          data: reason,
-        );
+    : this(type: 'connectionFailed', data: reason);
 
   /// Event when a message is sent.
   WebSocketEvent.messageSent(WebSocketMessage message)
-      : this(
-          type: 'messageSent',
-          data: message,
-        );
+    : this(type: 'messageSent', data: message);
 
   /// Event when a message is received.
   WebSocketEvent.messageReceived(WebSocketMessage message)
-      : this(
-          type: 'messageReceived',
-          data: message,
-        );
+    : this(type: 'messageReceived', data: message);
 
   /// Event when an error occurs.
-  WebSocketEvent.error(String error)
-      : this(
-          type: 'error',
-          data: error,
-        );
+  WebSocketEvent.error(String error) : this(type: 'error', data: error);
 
   @override
   String toString() {

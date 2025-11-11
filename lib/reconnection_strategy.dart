@@ -1,6 +1,30 @@
 import 'dart:math';
 
 /// Abstract class for implementing reconnection strategies.
+///
+/// Reconnection strategies determine how and when to attempt reconnection
+/// after a WebSocket connection is lost. Implementations can use different
+/// algorithms such as exponential backoff, linear backoff, or fixed delays.
+///
+/// Example:
+/// ```dart
+/// class CustomStrategy implements ReconnectionStrategy {
+///   @override
+///   Duration calculateDelay(int attemptNumber) {
+///     return Duration(seconds: attemptNumber * 2);
+///   }
+///
+///   @override
+///   bool shouldReconnect(int attemptNumber, int maxAttempts) {
+///     return attemptNumber <= maxAttempts;
+///   }
+///
+///   @override
+///   void reset() {
+///     // Reset strategy state
+///   }
+/// }
+/// ```
 abstract class ReconnectionStrategy {
   /// Calculates the delay before the next reconnection attempt.
   Duration calculateDelay(int attemptNumber);
@@ -37,7 +61,8 @@ class ExponentialBackoffStrategy implements ReconnectionStrategy {
   @override
   Duration calculateDelay(int attemptNumber) {
     // Calculate exponential delay
-    final exponentialDelay = initialDelay.inMilliseconds *
+    final exponentialDelay =
+        initialDelay.inMilliseconds *
         (pow(multiplier, attemptNumber - 1).toInt());
 
     // Apply maximum delay cap
@@ -87,7 +112,8 @@ class LinearBackoffStrategy implements ReconnectionStrategy {
 
   @override
   Duration calculateDelay(int attemptNumber) {
-    final linearDelay = initialDelay.inMilliseconds +
+    final linearDelay =
+        initialDelay.inMilliseconds +
         (increment.inMilliseconds * (attemptNumber - 1));
 
     final cappedDelay = linearDelay.clamp(0, maxDelay.inMilliseconds);
@@ -117,9 +143,7 @@ class FixedDelayStrategy implements ReconnectionStrategy {
   final Duration delay;
 
   /// Creates a new FixedDelayStrategy.
-  const FixedDelayStrategy({
-    this.delay = const Duration(seconds: 5),
-  });
+  const FixedDelayStrategy({this.delay = const Duration(seconds: 5)});
 
   @override
   Duration calculateDelay(int attemptNumber) {
@@ -169,7 +193,22 @@ class NoReconnectionStrategy implements ReconnectionStrategy {
 }
 
 /// Factory for creating reconnection strategies.
+///
+/// This factory provides a convenient way to create different types of
+/// reconnection strategies with default or custom parameters.
+///
+/// Example:
+/// ```dart
+/// final strategy = ReconnectionStrategyFactory.create(
+///   type: ReconnectionStrategyType.exponential,
+///   initialDelay: Duration(seconds: 2),
+///   maxDelay: Duration(minutes: 10),
+/// );
+/// ```
 class ReconnectionStrategyFactory {
+  /// Private constructor to prevent instantiation.
+  ReconnectionStrategyFactory._();
+
   /// Creates a reconnection strategy based on the strategy type.
   static ReconnectionStrategy create({
     ReconnectionStrategyType type = ReconnectionStrategyType.exponential,

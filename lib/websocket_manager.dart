@@ -37,26 +37,36 @@ class WebSocketManager {
   final StreamController<WebSocketManagerEvent> _eventController =
       StreamController<WebSocketManagerEvent>.broadcast();
 
+  /// Subscription to connection state stream.
+  StreamSubscription<WebSocketState>? _stateSubscription;
+
+  /// Subscription to connection event stream.
+  StreamSubscription<WebSocketEvent>? _eventSubscription;
+
+  /// Whether the manager is disposed.
+  bool _isDisposed = false;
+
   /// Creates a new WebSocketManager.
   WebSocketManager({
-    required WebSocketConfig config,
+    required this.config,
     ReconnectionStrategy? reconnectionStrategy,
     MessageQueue? messageQueue,
-  })  : config = config,
-        _reconnectionStrategy = reconnectionStrategy ??
-            ReconnectionStrategyFactory.create(
-              type: config.enableReconnection
-                  ? ReconnectionStrategyType.exponential
-                  : ReconnectionStrategyType.none,
-              initialDelay: config.initialReconnectionDelay,
-              maxDelay: config.maxReconnectionDelay,
-            ),
-        _messageQueue = messageQueue ??
-            MessageQueue(
-              maxSize: config.maxQueueSize,
-              enablePriority: config.enableMessageQueue,
-              enableDeduplication: config.enableMessageQueue,
-            );
+  }) : _reconnectionStrategy =
+           reconnectionStrategy ??
+           ReconnectionStrategyFactory.create(
+             type: config.enableReconnection
+                 ? ReconnectionStrategyType.exponential
+                 : ReconnectionStrategyType.none,
+             initialDelay: config.initialReconnectionDelay,
+             maxDelay: config.maxReconnectionDelay,
+           ),
+       _messageQueue =
+           messageQueue ??
+           MessageQueue(
+             maxSize: config.maxQueueSize,
+             enablePriority: config.enableMessageQueue,
+             enableDeduplication: config.enableMessageQueue,
+           );
 
   /// Returns the current connection state.
   WebSocketState get connectionState =>
@@ -98,16 +108,20 @@ class WebSocketManager {
       return;
     }
 
-    _eventController.add(WebSocketManagerEvent.connecting());
+    _addEvent(WebSocketManagerEvent.connecting());
 
     try {
       _connection = WebSocketConnection(config);
 
       // Listen to connection state changes
-      _connection!.stateStream.listen(_handleConnectionStateChange);
+      _stateSubscription = _connection!.stateStream.listen(
+        _handleConnectionStateChange,
+      );
 
       // Listen to connection events
-      _connection!.eventStream.listen(_handleConnectionEvent);
+      _eventSubscription = _connection!.eventStream.listen(
+        _handleConnectionEvent,
+      );
 
       // Connect to the server
       await _connection!.connect();
@@ -115,8 +129,7 @@ class WebSocketManager {
       // Process queued messages
       _processQueuedMessages();
     } catch (e) {
-      _eventController
-          .add(WebSocketManagerEvent.connectionFailed(e.toString()));
+      _addEvent(WebSocketManagerEvent.connectionFailed(e.toString()));
 
       if (config.enableReconnection) {
         _scheduleReconnection();
@@ -134,7 +147,7 @@ class WebSocketManager {
     await _connection?.disconnect();
     _connection = null;
 
-    _eventController.add(WebSocketManagerEvent.disconnected());
+    _addEvent(WebSocketManagerEvent.disconnected());
   }
 
   /// Sends a message through the WebSocket connection.
@@ -144,12 +157,11 @@ class WebSocketManager {
       try {
         final success = await _connection!.send(message);
         if (success) {
-          _eventController.add(WebSocketManagerEvent.messageSent(message));
+          _addEvent(WebSocketManagerEvent.messageSent(message));
           return true;
         }
       } catch (e) {
-        _eventController
-            .add(WebSocketManagerEvent.error('Failed to send message: $e'));
+        _addEvent(WebSocketManagerEvent.error('Failed to send message: $e'));
       }
     }
 
@@ -157,11 +169,10 @@ class WebSocketManager {
     if (config.enableMessageQueue) {
       final queued = _messageQueue.enqueue(message);
       if (queued) {
-        _eventController.add(WebSocketManagerEvent.messageQueued(message));
+        _addEvent(WebSocketManagerEvent.messageQueued(message));
         return true;
       } else {
-        _eventController
-            .add(WebSocketManagerEvent.error('Message queue is full'));
+        _addEvent(WebSocketManagerEvent.error('Message queue is full'));
         return false;
       }
     }
@@ -194,21 +205,37 @@ class WebSocketManager {
     return send(WebSocketMessage.pong());
   }
 
+  /// Safely adds a state to the state controller.
+  void _addState(WebSocketManagerState state) {
+    if (!_isDisposed && !_stateController.isClosed) {
+      _stateController.add(state);
+    }
+  }
+
+  /// Safely adds an event to the event controller.
+  void _addEvent(WebSocketManagerEvent event) {
+    if (!_isDisposed && !_eventController.isClosed) {
+      _eventController.add(event);
+    }
+  }
+
   /// Handles connection state changes.
   void _handleConnectionStateChange(WebSocketState state) {
-    _stateController.add(WebSocketManagerState(
-      connectionState: state,
-      isReconnecting: _isReconnecting,
-      reconnectionAttempt: _reconnectionAttempt,
-      queueSize: _messageQueue.size,
-    ));
+    _addState(
+      WebSocketManagerState(
+        connectionState: state,
+        isReconnecting: _isReconnecting,
+        reconnectionAttempt: _reconnectionAttempt,
+        queueSize: _messageQueue.size,
+      ),
+    );
 
     switch (state) {
       case WebSocketState.connected:
         _isReconnecting = false;
         _reconnectionAttempt = 0;
         _reconnectionStrategy.reset();
-        _eventController.add(WebSocketManagerEvent.connected());
+        _addEvent(WebSocketManagerEvent.connected());
         break;
 
       case WebSocketState.failed:
@@ -225,7 +252,7 @@ class WebSocketManager {
 
   /// Handles connection events.
   void _handleConnectionEvent(WebSocketEvent event) {
-    _eventController.add(WebSocketManagerEvent.fromConnectionEvent(event));
+    _addEvent(WebSocketManagerEvent.fromConnectionEvent(event));
   }
 
   /// Schedules a reconnection attempt.
@@ -237,15 +264,19 @@ class WebSocketManager {
     _reconnectionAttempt++;
 
     if (!_reconnectionStrategy.shouldReconnect(
-        _reconnectionAttempt, config.maxReconnectionAttempts)) {
-      _eventController.add(WebSocketManagerEvent.reconnectionFailed(
-          'Max reconnection attempts reached'));
+      _reconnectionAttempt,
+      config.maxReconnectionAttempts,
+    )) {
+      _addEvent(
+        WebSocketManagerEvent.reconnectionFailed(
+          'Max reconnection attempts reached',
+        ),
+      );
       return;
     }
 
     _isReconnecting = true;
-    _eventController
-        .add(WebSocketManagerEvent.reconnecting(_reconnectionAttempt));
+    _addEvent(WebSocketManagerEvent.reconnecting(_reconnectionAttempt));
 
     final delay = _reconnectionStrategy.calculateDelay(_reconnectionAttempt);
     _reconnectionTimer = Timer(delay, () {
@@ -262,52 +293,103 @@ class WebSocketManager {
       await connect();
     } catch (e) {
       _isReconnecting = false;
-      _eventController
-          .add(WebSocketManagerEvent.reconnectionFailed(e.toString()));
+      _addEvent(WebSocketManagerEvent.reconnectionFailed(e.toString()));
 
       // Schedule next reconnection attempt
       if (_reconnectionStrategy.shouldReconnect(
-          _reconnectionAttempt + 1, config.maxReconnectionAttempts)) {
+        _reconnectionAttempt + 1,
+        config.maxReconnectionAttempts,
+      )) {
         _scheduleReconnection();
       }
     }
   }
 
   /// Processes queued messages when connection is established.
+  /// Uses efficient batch processing for better performance.
   void _processQueuedMessages() {
     if (!config.enableMessageQueue) return;
 
-    while (!_messageQueue.isEmpty && isConnected) {
+    // Process messages in batches to avoid blocking
+    const batchSize = 10;
+    int processed = 0;
+
+    while (!_messageQueue.isEmpty && isConnected && processed < batchSize) {
       final message = _messageQueue.dequeue();
       if (message != null) {
         send(message).catchError((e) {
-          // Re-queue message if sending fails
+          // Re-queue message if sending fails and it can be retried
           if (message.canRetry) {
             _messageQueue.enqueue(message.withRetry());
+            _addEvent(
+              WebSocketManagerEvent.error(
+                'Failed to send queued message, retrying: ${message.id}',
+              ),
+            );
+          } else {
+            _addEvent(
+              WebSocketManagerEvent.error(
+                'Failed to send queued message, max retries reached: ${message.id}',
+              ),
+            );
           }
           return false; // Return value for catchError
         });
+        processed++;
       }
+    }
+
+    // If there are more messages, schedule another batch
+    if (!_messageQueue.isEmpty && isConnected) {
+      Future.microtask(() => _processQueuedMessages());
     }
   }
 
   /// Returns comprehensive statistics about the manager.
   Map<String, dynamic> getStatistics() {
+    final connectionStats = _connection?.statistics ?? <String, dynamic>{};
+
     return {
       'connectionState': connectionState.name,
       'isConnected': isConnected,
       'isReconnecting': _isReconnecting,
       'reconnectionAttempt': _reconnectionAttempt,
       'queueStatistics': queueStatistics,
+      'connectionStatistics': connectionStats,
       'config': config.toJson(),
+      'uptime': _connection?.connectionDuration?.inMilliseconds,
     };
   }
 
   /// Disposes of the manager and all resources.
   Future<void> dispose() async {
-    await disconnect();
-    await _stateController.close();
-    await _eventController.close();
+    if (_isDisposed) {
+      return;
+    }
+
+    _isDisposed = true;
+
+    // Cancel stream subscriptions first
+    await _stateSubscription?.cancel();
+    await _eventSubscription?.cancel();
+    _stateSubscription = null;
+    _eventSubscription = null;
+
+    // Cancel reconnection timer
+    _reconnectionTimer?.cancel();
+    _reconnectionTimer = null;
+
+    // Disconnect and dispose connection
+    await _connection?.dispose();
+    _connection = null;
+
+    // Close controllers last
+    if (!_stateController.isClosed) {
+      await _stateController.close();
+    }
+    if (!_eventController.isClosed) {
+      await _eventController.close();
+    }
   }
 }
 
@@ -351,11 +433,8 @@ class WebSocketManagerEvent {
   final DateTime timestamp;
 
   /// Creates a new WebSocketManagerEvent.
-  WebSocketManagerEvent({
-    required this.type,
-    this.data,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+  WebSocketManagerEvent({required this.type, this.data, DateTime? timestamp})
+    : timestamp = timestamp ?? DateTime.now();
 
   /// Event when connecting.
   WebSocketManagerEvent.connecting() : this(type: 'connecting');
@@ -368,53 +447,34 @@ class WebSocketManagerEvent {
 
   /// Event when connection fails.
   WebSocketManagerEvent.connectionFailed(String reason)
-      : this(
-          type: 'connectionFailed',
-          data: reason,
-        );
+    : this(type: 'connectionFailed', data: reason);
 
   /// Event when reconnecting.
   WebSocketManagerEvent.reconnecting(int attempt)
-      : this(
-          type: 'reconnecting',
-          data: attempt,
-        );
+    : this(type: 'reconnecting', data: attempt);
 
   /// Event when reconnection fails.
   WebSocketManagerEvent.reconnectionFailed(String reason)
-      : this(
-          type: 'reconnectionFailed',
-          data: reason,
-        );
+    : this(type: 'reconnectionFailed', data: reason);
 
   /// Event when a message is sent.
   WebSocketManagerEvent.messageSent(WebSocketMessage message)
-      : this(
-          type: 'messageSent',
-          data: message,
-        );
+    : this(type: 'messageSent', data: message);
 
   /// Event when a message is queued.
   WebSocketManagerEvent.messageQueued(WebSocketMessage message)
-      : this(
-          type: 'messageQueued',
-          data: message,
-        );
+    : this(type: 'messageQueued', data: message);
 
   /// Event when an error occurs.
-  WebSocketManagerEvent.error(String error)
-      : this(
-          type: 'error',
-          data: error,
-        );
+  WebSocketManagerEvent.error(String error) : this(type: 'error', data: error);
 
   /// Creates an event from a connection event.
   WebSocketManagerEvent.fromConnectionEvent(WebSocketEvent event)
-      : this(
-          type: 'connection_${event.type}',
-          data: event.data,
-          timestamp: event.timestamp,
-        );
+    : this(
+        type: 'connection_${event.type}',
+        data: event.data,
+        timestamp: event.timestamp,
+      );
 
   @override
   String toString() {
